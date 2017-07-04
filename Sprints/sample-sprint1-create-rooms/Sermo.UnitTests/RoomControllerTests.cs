@@ -14,51 +14,50 @@ using NUnit.Framework;
 using Moq;
 using System.ComponentModel.DataAnnotations;
 
-namespace Sermo.UnitTests
-{
+namespace Sermo.UnitTests {
     [TestFixture]
-    public class RoomControllerTests
-    {
+    public class RoomControllerTests {
+        [SetUp]
+        public void SetUp() {
+            mockRoomRepository = new Mock<IRoomRepository>();
+        }
+
+        private RoomController CreateController() {
+            return new RoomController(mockRoomRepository.Object);
+        }
+
+        private Mock<IRoomRepository> mockRoomRepository;
+
         [Test]
-        public void ConstructingWithoutRepositoryThrowsArgumentNullException()
-        {
+        public void ConstructingWithoutRepositoryThrowsArgumentNullException() {
             Assert.Throws<ArgumentNullException>(() => new RoomController(null));
         }
 
         [Test]
-        public void ConstructingWithValidParametersDoesNotThrowException()
-        {
+        public void ConstructingWithValidParametersDoesNotThrowException() {
             Assert.DoesNotThrow(() => CreateController());
         }
 
         [Test]
-        public void GetCreateRendersView()
-        {
+        public void GetCreateRendersView() {
             var controller = CreateController();
-
             var result = controller.Create();
-
-            Assert.That(result, Is.InstanceOf<ViewResult>());
+            Assert.IsInstanceOf<ViewResult>(result);
         }
 
         [Test]
-        public void GetCreateSetsViewModel()
-        {
+        public void GetCreateSetsViewModel() {
             var controller = CreateController();
-
-            var viewResult = controller.Create() as ViewResult;
-
-            Assert.That(viewResult.Model, Is.InstanceOf<CreateRoomViewModel>());
+            var result = controller.Create() as ViewResult;
+            Assert.IsInstanceOf<CreateRoomViewModel>(result.Model);
         }
 
         [Test]
         [TestCase(null)]
         [TestCase("")]
         [TestCase("    ")]
-        public void PostCreateNewRoomWithInvalidRoomNameCausesValidationError(string roomName)
-        {
+        public void PostCreateNewRoomWithInvalidRoomNameCausesValidationError(string roomName) {
             var controller = CreateController();
-
             var viewModel = new CreateRoomViewModel { NewRoomName = roomName };
 
             var context = new ValidationContext(viewModel, serviceProvider: null, items: null);
@@ -66,64 +65,47 @@ namespace Sermo.UnitTests
 
             var isValid = Validator.TryValidateObject(viewModel, context, results);
 
-            Assert.That(isValid, Is.False);
+            Assert.IsFalse(isValid);
         }
 
         [Test]
         [TestCase(null)]
         [TestCase("")]
         [TestCase("    ")]
-        public void PostCreateNewRoomWithInvalidRoomNameShowsCreateView(string roomName)
-        {
+        public void PostCreateNewRoomWithInvalidRoomNameShowsCreateView(string roomName) {
             var controller = CreateController();
-
             var viewModel = new CreateRoomViewModel { NewRoomName = roomName };
-            controller.ViewData.ModelState.AddModelError("Room Name", "Room name is required");
+
+            controller.ModelState.AddModelError("Room name", "Room name is required.");
             var result = controller.Create(viewModel);
 
-            Assert.That(result, Is.InstanceOf<ViewResult>());
+            Assert.IsInstanceOf<ViewResult>(result);
 
             var viewResult = result as ViewResult;
-            Assert.That(viewResult.View, Is.Null);
-            Assert.That(viewResult.Model, Is.EqualTo(viewModel));
+            Assert.AreEqual(viewResult.Model, viewModel);
+            Assert.AreEqual(viewResult.View, null);
         }
 
         [Test]
-        public void PostCreateNewRoomRedirectsToViewResult()
-        {
+        public void PostCreateNewRoomRedirectsToViewResult() {
             var controller = CreateController();
+            var viewModel = new CreateRoomViewModel { NewRoomName = "new room" };
 
-            var viewModel = new CreateRoomViewModel { NewRoomName = "Test Room" };
             var result = controller.Create(viewModel);
+            Assert.IsInstanceOf<RedirectToRouteResult>(result);
 
-            Assert.That(result, Is.InstanceOf<RedirectToRouteResult>());
-            
-            var redirectResult = result as RedirectToRouteResult;
-            Assert.That(redirectResult.RouteValues["Action"], Is.EqualTo("List"));
+            var redirestResult = result as RedirectToRouteResult;
+            Assert.AreEqual(redirestResult.RouteValues["Action"], "List");
         }
 
         [Test]
-        public void PostCreateNewRoomDelegatesToRoomRepository()
-        {
+        public void PostCreateNewRoomDelegatesToRoomRepository() {
             var controller = CreateController();
+            var viewModel = new CreateRoomViewModel { NewRoomName = "new room" };
 
-            var viewModel = new CreateRoomViewModel { NewRoomName = "Test Room" };
             controller.Create(viewModel);
 
-            mockRoomRepository.Verify(repository => repository.CreateRoom("Test Room"));
+            mockRoomRepository.Verify(m => m.CreateRoom("new room"), Times.Once);
         }
-
-        [SetUp]
-        public void SetUp()
-        {
-            mockRoomRepository = new Mock<IRoomRepository>();
-        }
-
-        private RoomController CreateController()
-        {
-            return new RoomController(mockRoomRepository.Object);
-        }
-
-        private Mock<IRoomRepository> mockRoomRepository;
     }
 }
